@@ -12,11 +12,11 @@
 #include <stdlib.h>
 #include <rtthread.h>
 #include "board.h"
-#include "sensor.h"
+#include "drivers/sensor_v2.h"
 #include "sensor_dallas_ds18b20.h"
 
 /* Modify this pin according to the actual wiring situation */
-#define DS18B20_DATA_PIN    GET_PIN(G, 9)
+#define DS18B20_DATA_PIN    GET_PIN(B, 10)
 
 static void read_temp_entry(void *parameter)
 {
@@ -36,7 +36,7 @@ static void read_temp_entry(void *parameter)
         rt_kprintf("open device failed!\n");
         return;
     }
-    rt_device_control(dev, RT_SENSOR_CTRL_SET_ODR, (void *)100);
+    rt_device_control(dev, RT_SENSOR_CTRL_GET_ID, (void *)100);
 
     while (1)
     {

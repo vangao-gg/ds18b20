@@ -10,7 +10,7 @@
  */
 
 #include "sensor_dallas_ds18b20.h"
-#include "sensor.h"
+#include "drivers/sensor_v2.h"
 #include "board.h"
 #include <rtdbg.h>
 
@@ -20,7 +20,7 @@
 #define SENSOR_TEMP_RANGE_MAX (125)
 #define SENSOR_TEMP_RANGE_MIN (-55)
 
-RT_WEAK void rt_hw_us_delay(rt_uint32_t us)
+rt_weak void rt_hw_us_delay(rt_uint32_t us)
 {
     rt_uint32_t delta;
 
@@ -32,18 +32,18 @@ RT_WEAK void rt_hw_us_delay(rt_uint32_t us)
 
 static void ds18b20_reset(rt_base_t pin)
 {
-    rt_pin_mode(pin, PIN_MODE_OUTPUT);
+    rt_pin_mode(pin, PIN_MODE_OUTPUT_PP);
     rt_pin_write(pin, PIN_LOW);
     rt_hw_us_delay(780);               /* 480us - 960us */
     rt_pin_write(pin, PIN_HIGH);
     rt_hw_us_delay(40);                /* 15us - 60us*/
 }
 
-static uint8_t ds18b20_connect(rt_base_t pin)
+static rt_uint8_t ds18b20_connect(rt_base_t pin)
 {
-    uint8_t retry = 0;
+    rt_uint8_t retry = 0;
     rt_pin_mode(pin, PIN_MODE_INPUT);
-
+    rt_enter_critical();
     while (rt_pin_read(pin) && retry < 200)
     {
         retry++;
@@ -60,16 +60,16 @@ static uint8_t ds18b20_connect(rt_base_t pin)
         retry++;
         rt_hw_us_delay(1);
     };
-
+    rt_exit_critical();
     if(retry >= 240)
         return CONNECT_FAILED;
 
     return CONNECT_SUCCESS;
 }
 
-static uint8_t ds18b20_read_bit(rt_base_t pin)
+static rt_uint8_t ds18b20_read_bit(rt_base_t pin)
 {
-    uint8_t data;
+    rt_uint8_t data;
 
     rt_pin_mode(pin, PIN_MODE_OUTPUT);
     rt_pin_write(pin, PIN_LOW);
@@ -89,26 +89,29 @@ static uint8_t ds18b20_read_bit(rt_base_t pin)
     return data;
 }
 
-static uint8_t ds18b20_read_byte(rt_base_t pin)
+static rt_uint8_t ds18b20_read_byte(rt_base_t pin)
 {
-    uint8_t i, j, dat;
+    rt_uint8_t i, j, dat;
     dat = 0;
 
+    rt_enter_critical();
     for (i = 1; i <= 8; i++)
     {
         j = ds18b20_read_bit(pin);
         dat = (j << 7) | (dat >> 1);
     }
+    rt_exit_critical();
 
     return dat;
 }
 
-static void ds18b20_write_byte(rt_base_t pin, uint8_t dat)
+static void ds18b20_write_byte(rt_base_t pin, rt_uint8_t dat)
 {
-    uint8_t j;
-    uint8_t testb;
+    rt_uint8_t j;
+    rt_uint8_t testb;
     rt_pin_mode(pin, PIN_MODE_OUTPUT);
 
+    rt_enter_critical();
     for (j = 1; j <= 8; j++)
     {
         testb = dat & 0x01;
@@ -129,6 +132,7 @@ static void ds18b20_write_byte(rt_base_t pin, uint8_t dat)
             rt_hw_us_delay(2);
         }
     }
+    rt_exit_critical();
 }
 
 void ds18b20_start(rt_base_t pin)
@@ -139,9 +143,9 @@ void ds18b20_start(rt_base_t pin)
     ds18b20_write_byte(pin, 0x44);  /* convert */
 }
 
-uint8_t ds18b20_init(rt_base_t pin)
+rt_uint8_t ds18b20_init(rt_base_t pin)
 {
-    uint8_t ret = 0;
+    rt_uint8_t ret = 0;
 
     ds18b20_reset(pin);
     ret = ds18b20_connect(pin);
@@ -149,9 +153,9 @@ uint8_t ds18b20_init(rt_base_t pin)
     return ret;
 }
 
-int32_t ds18b20_get_temperature(rt_base_t pin)
+rt_int32_t ds18b20_get_temperature(rt_base_t pin)
 {
-    uint8_t TL, TH;
+    rt_uint8_t TL, TH;
     int32_t tem;
     
     ds18b20_start(pin);
@@ -167,7 +171,7 @@ int32_t ds18b20_get_temperature(rt_base_t pin)
         tem = TH;
         tem <<= 8;
         tem += TL;
-        tem = (int32_t)(tem * 0.0625 * 10 + 0.5);
+        tem = (int32_t)(tem * 0.0625 * 10 + 0.5);//10倍温度，+0.5实现四舍五入
         return -tem;
     }
     else
@@ -175,7 +179,7 @@ int32_t ds18b20_get_temperature(rt_base_t pin)
         tem = TH;
         tem <<= 8;
         tem += TL;
-        tem = (int32_t)(tem * 0.0625 * 10 + 0.5);
+        tem = (int32_t)(tem * 0.0625 * 10 + 0.5);//10倍温度，+0.5实现四舍五入
         return tem;
     }
 }
