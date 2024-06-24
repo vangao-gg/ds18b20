@@ -14,6 +14,7 @@
 #include "board.h"
 #include "drivers/sensor_v2.h"
 #include "sensor_dallas_ds18b20.h"
+#include "mqtt_sample.h"
 
 /* Modify this pin according to the actual wiring situation */
 #define DS18B20_DATA_PIN    GET_PIN(B, 10)
@@ -23,6 +24,19 @@ static void read_temp_entry(void *parameter)
     rt_device_t dev = RT_NULL;
     struct rt_sensor_data sensor_data;
     rt_size_t res;
+    rt_bool_t mqtt_status = 0;
+    char str_send_mqtt[100] = {0};
+
+    if(mqtt_start_ex())
+    {
+        rt_kprintf("mqtt start fail\r\n");
+    }
+    else
+    {
+        mqtt_status = 1;
+        rt_kprintf("mqtt start ok\r\n");
+    }
+    
 
     dev = rt_device_find(parameter);
     if (dev == RT_NULL)
@@ -51,20 +65,33 @@ static void read_temp_entry(void *parameter)
         {
             if (sensor_data.data.temp >= 0)
             {
-                rt_kprintf("temp:%3d.%dC, timestamp:%5d\n",
-                           sensor_data.data.temp / 10,
-                           sensor_data.data.temp % 10,
-                           sensor_data.timestamp);
+                // rt_kprintf("temp:%3d.%dC, timestamp:%5d\n",
+                //            sensor_data.data.temp / 10,
+                //            sensor_data.data.temp % 10,
+                //            sensor_data.timestamp);
+
+                rt_sprintf(str_send_mqtt, "temp :%3d.%dC,timestamp:%5d", sensor_data.data.temp / 10,sensor_data.data.temp % 10,sensor_data.timestamp);
             }
             else
             {
-                rt_kprintf("temp:-%2d.%dC, timestamp:%5d\n",
-                           abs(sensor_data.data.temp / 10),
-                           abs(sensor_data.data.temp % 10),
-                           sensor_data.timestamp);
+                // rt_kprintf("temp:-%2d.%dC, timestamp:%5d\n",
+                //            abs(sensor_data.data.temp / 10),
+                //            abs(sensor_data.data.temp % 10),
+                //            sensor_data.timestamp);
+                rt_sprintf(str_send_mqtt, "-temp :%3d.%dC,timestamp:%5d", sensor_data.data.temp / 10,sensor_data.data.temp % 10,sensor_data.timestamp);
             }
+            
+            if(mqtt_status)
+            {
+                mqtt_publish_ex(str_send_mqtt);
+            }
+            
         }
-        rt_thread_mdelay(100);
+        rt_thread_mdelay(1000);
+        rt_thread_mdelay(1000);
+        rt_thread_mdelay(1000);
+        rt_thread_mdelay(1000);
+        rt_thread_mdelay(1000);
     }
 }
 
@@ -85,7 +112,7 @@ static int ds18b20_read_temp_sample(void)
 
     return RT_EOK;
 }
-// INIT_APP_EXPORT(ds18b20_read_temp_sample);
+INIT_APP_EXPORT(ds18b20_read_temp_sample);
 
 static int rt_hw_ds18b20_port(void)
 {
