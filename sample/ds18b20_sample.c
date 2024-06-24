@@ -85,7 +85,7 @@ static int ds18b20_read_temp_sample(void)
 
     return RT_EOK;
 }
-INIT_APP_EXPORT(ds18b20_read_temp_sample);
+// INIT_APP_EXPORT(ds18b20_read_temp_sample);
 
 static int rt_hw_ds18b20_port(void)
 {

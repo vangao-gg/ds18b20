@@ -42,7 +42,7 @@ static void ds18b20_reset(rt_base_t pin)
 static rt_uint8_t ds18b20_connect(rt_base_t pin)
 {
     rt_uint8_t retry = 0;
-    rt_pin_mode(pin, PIN_MODE_INPUT);
+    rt_pin_mode(pin, PIN_MODE_INPUT_PULLUP);
     rt_enter_critical();
     while (rt_pin_read(pin) && retry < 200)
     {
