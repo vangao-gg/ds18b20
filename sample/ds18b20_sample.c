@@ -19,8 +19,17 @@
 /* Modify this pin according to the actual wiring situation */
 #define DS18B20_DATA_PIN    GET_PIN(B, 10)
 
+
+// 定义结构体来存储小时、分钟和秒
+struct Time {
+    int hours;
+    int minutes;
+    int seconds;
+};
+
 static void read_temp_entry(void *parameter)
 {
+    struct Time time_experience;
     rt_device_t dev = RT_NULL;
     struct rt_sensor_data sensor_data;
     rt_size_t res;
@@ -63,6 +72,13 @@ static void read_temp_entry(void *parameter)
         }
         else
         {
+            // 计算小时、分钟和秒
+            sensor_data.timestamp = sensor_data.timestamp / 1000;
+            time_experience.hours = sensor_data.timestamp / 3600;
+            sensor_data.timestamp = sensor_data.timestamp % 3600;
+            time_experience.minutes = sensor_data.timestamp / 60;
+            time_experience.seconds = sensor_data.timestamp % 60;
+
             if (sensor_data.data.temp >= 0)
             {
                 // rt_kprintf("temp:%3d.%dC, timestamp:%5d\n",
@@ -70,7 +86,9 @@ static void read_temp_entry(void *parameter)
                 //            sensor_data.data.temp % 10,
                 //            sensor_data.timestamp);
 
-                rt_sprintf(str_send_mqtt, "temp :%3d.%dC,timestamp:%5d", sensor_data.data.temp / 10,sensor_data.data.temp % 10,sensor_data.timestamp);
+                rt_sprintf(str_send_mqtt, "temp : %3d.%dC,timestamp : %d:%d:%d", sensor_data.data.temp / 10,
+                           sensor_data.data.temp % 10, time_experience.hours, time_experience.minutes,
+                           time_experience.seconds);
             }
             else
             {
@@ -78,7 +96,9 @@ static void read_temp_entry(void *parameter)
                 //            abs(sensor_data.data.temp / 10),
                 //            abs(sensor_data.data.temp % 10),
                 //            sensor_data.timestamp);
-                rt_sprintf(str_send_mqtt, "-temp :%3d.%dC,timestamp:%5d", sensor_data.data.temp / 10,sensor_data.data.temp % 10,sensor_data.timestamp);
+                rt_sprintf(str_send_mqtt, "-temp :%3d.%dC,timestamp : %d:%d:%d", sensor_data.data.temp / 10,
+                           sensor_data.data.temp % 10, time_experience.hours, time_experience.minutes,
+                           time_experience.seconds);
             }
             
             if(mqtt_status)
