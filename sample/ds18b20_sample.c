@@ -126,27 +126,21 @@ static void read_temp_entry(void *parameter)
             time_experience.minutes = sensor_data.timestamp / 60;
             time_experience.seconds = sensor_data.timestamp % 60;
 
-            if (sensor_data.data.temp >= 0)
+            if (sensor_data.data.temp >= 0) 
+            {                
+                rt_sprintf(str_send_mqtt,"T:%2d.%d °C,B:%1d.%3d V,%dh:%dm:%ds",
+                        sensor_data.data.temp / 10,sensor_data.data.temp % 10, 
+                        bat_vol[0]/1000,bat_vol[0]%1000,
+                        time_experience.hours, time_experience.minutes,time_experience.seconds
+                        );
+            }
+            else
             {
-                // rt_kprintf("temp:%3d.%dC, timestamp:%5d\n",
-                //            sensor_data.data.temp / 10,
-                //            sensor_data.data.temp % 10,
-                //            sensor_data.timestamp);
-
-                rt_sprintf(str_send_mqtt, "temp : %3d.%dC,timestamp : %d:%d:%d, bat_vol : %d", sensor_data.data.temp / 10,
-                        sensor_data.data.temp % 10, time_experience.hours, time_experience.minutes,
-                        time_experience.seconds,bat_vol[0]);
-                }
-                else
-                {
-                    // rt_kprintf("temp:-%2d.%dC, timestamp:%5d\n",
-                    //            abs(sensor_data.data.temp / 10),
-                    //            abs(sensor_data.data.temp % 10),
-                    //            sensor_data.timestamp);
-
-                rt_sprintf(str_send_mqtt, "temp : -%3d.%dC,timestamp : %d:%d:%d, bat_vol : %d", sensor_data.data.temp / 10,
-                        sensor_data.data.temp % 10, time_experience.hours, time_experience.minutes,
-                        time_experience.seconds,bat_vol[0]);
+                rt_sprintf(str_send_mqtt,"-T:%2d.%d °C,B:%1d.%3d V,%dh:%dm:%ds",
+                        sensor_data.data.temp / 10,sensor_data.data.temp % 10, 
+                        bat_vol[0]/1000,bat_vol[0]%1000,
+                        time_experience.hours, time_experience.minutes,time_experience.seconds
+                        );
             }
             
             if(mqtt_status)
