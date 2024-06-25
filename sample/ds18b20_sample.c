@@ -15,10 +15,54 @@
 #include "drivers/sensor_v2.h"
 #include "sensor_dallas_ds18b20.h"
 #include "mqtt_sample.h"
+#include <rtdevice.h>
 
 /* Modify this pin according to the actual wiring situation */
 #define DS18B20_DATA_PIN    GET_PIN(B, 10)
 
+#define ADC_DEV_NAME        "adc1"      /* ADC 设备名称 */
+#define REFER_VOLTAGE       3300         /* 参考电压 3.3V,数据精度乘以100保留2位小数*/
+#define CONVERT_BITS        (1 << 12)   /* 转换位数为12位 */
+
+rt_adc_device_t adc_dev_smt;
+
+int smt_check_init(void)
+{
+    rt_err_t ret = RT_EOK;
+    /* 查找设备 */
+    adc_dev_smt = (rt_adc_device_t)rt_device_find(ADC_DEV_NAME);
+    if (adc_dev_smt == RT_NULL)
+    {
+        rt_kprintf("adc sample run failed! can't find %s device!\n", ADC_DEV_NAME);
+        return RT_ERROR;
+    }
+
+    return ret;
+}
+
+INIT_COMPONENT_EXPORT(smt_check_init);
+
+int smt_adc_get(rt_uint16_t *io_data,rt_uint8_t size)
+{
+    rt_err_t ret = RT_EOK;
+    rt_uint32_t value;
+
+    if(adc_dev_smt == NULL)
+    {
+        rt_kprintf("adc device init fail\r\n");
+        memset(io_data,'0',sizeof(rt_uint16_t)*size);
+        return -1;
+    }
+
+    for (rt_uint8_t i = 0; i < size;i++)
+    {
+        ret = rt_adc_enable(adc_dev_smt, i);
+        value = rt_adc_read(adc_dev_smt, i);
+        io_data[i] = value * REFER_VOLTAGE / CONVERT_BITS;
+        ret = rt_adc_disable(adc_dev_smt, i);
+    }
+    return 0;
+}
 
 // 定义结构体来存储小时、分钟和秒
 struct Time {
@@ -35,6 +79,7 @@ static void read_temp_entry(void *parameter)
     rt_size_t res;
     rt_bool_t mqtt_status = 0;
     char str_send_mqtt[100] = {0};
+    rt_uint16_t bat_vol[2] = {0};
 
     if(mqtt_start_ex())
     {
@@ -45,8 +90,6 @@ static void read_temp_entry(void *parameter)
         mqtt_status = 1;
         rt_kprintf("mqtt start ok\r\n");
     }
-    
-
     dev = rt_device_find(parameter);
     if (dev == RT_NULL)
     {
@@ -61,6 +104,8 @@ static void read_temp_entry(void *parameter)
     }
     rt_device_control(dev, RT_SENSOR_CTRL_GET_ID, (void *)100);
 
+    smt_check_init();
+
     while (1)
     {
         res = rt_device_read(dev, 0, &sensor_data, 1);
@@ -72,6 +117,8 @@ static void read_temp_entry(void *parameter)
         }
         else
         {
+            smt_adc_get(&bat_vol,1);            
+
             // 计算小时、分钟和秒
             sensor_data.timestamp = sensor_data.timestamp / 1000;
             time_experience.hours = sensor_data.timestamp / 3600;
@@ -86,19 +133,20 @@ static void read_temp_entry(void *parameter)
                 //            sensor_data.data.temp % 10,
                 //            sensor_data.timestamp);
 
-                rt_sprintf(str_send_mqtt, "temp : %3d.%dC,timestamp : %d:%d:%d", sensor_data.data.temp / 10,
-                           sensor_data.data.temp % 10, time_experience.hours, time_experience.minutes,
-                           time_experience.seconds);
-            }
-            else
-            {
-                // rt_kprintf("temp:-%2d.%dC, timestamp:%5d\n",
-                //            abs(sensor_data.data.temp / 10),
-                //            abs(sensor_data.data.temp % 10),
-                //            sensor_data.timestamp);
-                rt_sprintf(str_send_mqtt, "-temp :%3d.%dC,timestamp : %d:%d:%d", sensor_data.data.temp / 10,
-                           sensor_data.data.temp % 10, time_experience.hours, time_experience.minutes,
-                           time_experience.seconds);
+                rt_sprintf(str_send_mqtt, "temp : %3d.%dC,timestamp : %d:%d:%d, bat_vol : %d", sensor_data.data.temp / 10,
+                        sensor_data.data.temp % 10, time_experience.hours, time_experience.minutes,
+                        time_experience.seconds,bat_vol[0]);
+                }
+                else
+                {
+                    // rt_kprintf("temp:-%2d.%dC, timestamp:%5d\n",
+                    //            abs(sensor_data.data.temp / 10),
+                    //            abs(sensor_data.data.temp % 10),
+                    //            sensor_data.timestamp);
+
+                rt_sprintf(str_send_mqtt, "temp : -%3d.%dC,timestamp : %d:%d:%d, bat_vol : %d", sensor_data.data.temp / 10,
+                        sensor_data.data.temp % 10, time_experience.hours, time_experience.minutes,
+                        time_experience.seconds,bat_vol[0]);
             }
             
             if(mqtt_status)
