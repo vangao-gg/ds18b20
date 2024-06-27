@@ -23,6 +23,7 @@
 #define ADC_DEV_NAME        "adc1"      /* ADC 设备名称 */
 #define REFER_VOLTAGE       3300         /* 参考电压 3.3V,数据精度乘以100保留2位小数*/
 #define CONVERT_BITS        (1 << 12)   /* 转换位数为12位 */
+#define BAT_VOL_COE         10.57       // 电压采集分压系数
 
 rt_adc_device_t adc_dev_smt;
 
@@ -58,7 +59,7 @@ int smt_adc_get(rt_uint16_t *io_data,rt_uint8_t size)
     {
         ret = rt_adc_enable(adc_dev_smt, i);
         value = rt_adc_read(adc_dev_smt, i);
-        io_data[i] = value * REFER_VOLTAGE / CONVERT_BITS;
+        io_data[i] = value * REFER_VOLTAGE * BAT_VOL_COE / CONVERT_BITS;
         ret = rt_adc_disable(adc_dev_smt, i);
     }
     return 0;
